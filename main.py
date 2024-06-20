@@ -32,7 +32,7 @@ class RegistryKey:
 
     def format_registry_date(self, last_modified_date):
         """Format datetime object to a readable string."""
-        return last_modified_date.strftime("%d:%m:%Y, %H:%M:%S")
+        return last_modified_date.strftime("%d/%m/%Y, %H:%M:%S")
 
     def check_last_modified(self):
         """Retrieve the last modified timestamp of the registry key."""
