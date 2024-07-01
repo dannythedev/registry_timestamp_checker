@@ -5,18 +5,25 @@ This application allows you to check and display the last modified timestamps of
 ## Features
 - **Input**: Paste or enter multiple registry key paths.
 - **Output**: Displays the last modified timestamps for each key in a table.
-- **Copy Functionality**: Right-click to copy selected rows to clipboard.
+
+Or, alternatively:
+
+- **Checkbox Selection**: Fetch registry keys from selected root categories.
+- **Calendar Selection**: Choose a range of dates to retrieve keys modified within that period.
+- **Output**: Displays the modified registries and timestamps for each key in the selected checkbox categories and date range.
+
 
 ## Requirements
 - Python 3.x
 - tkinter (included in standard library)
 - winreg (included in standard library)
+- tkcalendar (as per ```python requirements.txt```)
 
 ## Usage
 1. **Clone the repository** or download the `main.py` file.
 2. **Run the application** using Python:
 ```python main.py```
-3. **Paste** or manually enter the registry keys into the text box.
+3. **Paste**, manually enter or select specific checkboxes and date range of the registry keys into the text box.
 4. Click on **Retrieve Timestamps** to fetch and display the last modified timestamps.
 5. **Right-click** on any row in the results table to copy the selected rows to the clipboard.
 
@@ -39,7 +46,6 @@ Will give out:
 
 ## Notes
 - Ensure you have the necessary permissions to access the registry keys.
-- The application handles errors such as invalid key paths or permission issues gracefully.
 
 ## Author
 - Created by dannythedev.

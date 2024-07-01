@@ -1,8 +1,10 @@
+# RegistryCheckerGUI.py
+
 from tkinter import ttk
 import tkinter as tk
 import winreg
 import datetime
-
+from tkcalendar import DateEntry
 from RegistryKey import RegistryKey
 
 
@@ -15,6 +17,8 @@ class RegistryCheckerGUI:
         self.root.title("Registry Key Timestamp Checker")
         self.selected_roots = set()  # Set to store selected registry roots
         self.checkbox_vars = {}
+        self.start_date = None
+        self.end_date = None
 
         self.create_widgets()
 
@@ -46,17 +50,34 @@ class RegistryCheckerGUI:
         for i, (root, names) in enumerate(RegistryKey.registry_roots.items()):
             var = tk.BooleanVar()
             checkbox = ttk.Checkbutton(checkbox_frame, text=names[0], variable=var, command=self.on_checkbox_toggle)
-            checkbox.grid(row=i // 2, column=i % 2, padx=5, pady=0, sticky="w")
+            checkbox.grid(row=i // 3, column=i % 3, padx=5, pady=0, sticky="w")
             self.checkbox_vars[root] = var
+
+        # Calendar / Date button for selecting date range
+        date_label = tk.Label(self.root, text="Select date range:")
+        date_label.grid(row=4, column=0, padx=10, pady=5, sticky="w")
+
+        today = datetime.date.today()
+
+        # Start date entry
+        self.start_date_entry = DateEntry(self.root, width=12, background='#4CAF50',
+                                          foreground='white', borderwidth=2, maxdate=today)
+        self.start_date_entry.grid(row=5, column=0, padx=10, pady=5, sticky="w")
+        self.start_date_entry.bind("<<DateEntrySelected>>", self.update_end_date_min)
+
+        # End date entry
+        self.end_date_entry = DateEntry(self.root, width=12, background='#4CAF50',
+                                        foreground='white', borderwidth=2, maxdate=today)
+        self.end_date_entry.grid(row=6, column=0, padx=10, pady=5, sticky="w")
 
         # Button to trigger checking
         check_button = tk.Button(self.root, text="Retrieve Timestamps", command=self.check_registry_keys, bg='#4CAF50',
                                  fg='white', activebackground='#45a049', padx=10, pady=5)
-        check_button.grid(row=4, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        check_button.grid(row=7, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 
         # Scrollbar for result_tree
         result_scrollbar = ttk.Scrollbar(self.root)
-        result_scrollbar.grid(row=5, column=1, sticky="ns")
+        result_scrollbar.grid(row=8, column=1, sticky="ns")
 
         # Treeview to display results in a table
         self.result_tree = ttk.Treeview(self.root, columns=("Index", "Key Path", "Last Modified"), show="headings",
@@ -71,12 +92,12 @@ class RegistryCheckerGUI:
         self.result_tree.column("Last Modified", width=200, anchor=tk.W)
 
         # Grid setup for result treeview
-        self.result_tree.grid(row=5, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.result_tree.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
         result_scrollbar.config(command=self.result_tree.yview)
 
         # Configure weight for resizing
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(5, weight=1)
+        self.root.rowconfigure(6, weight=1)
         self.result_tree.columnconfigure(0, weight=1)
         self.result_tree.rowconfigure(0, weight=1)
 
@@ -87,17 +108,14 @@ class RegistryCheckerGUI:
         self.context_menu = tk.Menu(self.root, tearoff=0)
         self.context_menu.add_command(label="Copy", command=self.copy_selected_rows)
 
-    def on_checkbox_toggle(self):
-        """Handle checkbox state changes to ensure mutual exclusivity with text input."""
-        # Update selected roots based on checkbox state
-        self.selected_roots = {root for root, var in self.checkbox_vars.items() if var.get()}
+    def update_end_date_min(self, event):
+        """Update the minimum date for the end date entry based on the selected start date."""
+        start_date = self.start_date_entry.get_date()
+        self.end_date_entry.config(mindate=start_date)
 
-        # Disable textbox if any checkbox is checked
-        if self.selected_roots:
-            self.key_textbox.delete("1.0", tk.END)
-            self.key_textbox.config(state=tk.DISABLED)
-        else:
-            self.key_textbox.config(state=tk.NORMAL)
+        # If the current end date is before the new start date, update the end date
+        if self.end_date_entry.get_date() < start_date:
+            self.end_date_entry.set_date(start_date)
 
     def check_registry_keys(self):
         """Retrieve and display last modified timestamps for the entered registry keys."""
@@ -113,17 +131,20 @@ class RegistryCheckerGUI:
             keys_text = self.key_textbox.get("1.0", tk.END).strip()
             registry_keys = keys_text.splitlines()
 
+        # Get selected date range
+        self.start_date = self.start_date_entry.get_date()
+        self.end_date = self.end_date_entry.get_date() if self.end_date_entry.get_date() else datetime.date.today()
+
         # Check each registry key and populate the treeview
-        one_week_ago = datetime.datetime.now() - datetime.timedelta(weeks=1)
         for index, key_path in enumerate(registry_keys, start=1):
             registry_key = RegistryKey(key_path.strip())
             try:
                 success, result = registry_key.check_last_modified()
                 last_modified_date = datetime.datetime.strptime(result, "%d/%m/%Y, %H:%M:%S")
-                if success and last_modified_date >= one_week_ago:
+                if success and self.start_date <= last_modified_date.date() <= self.end_date:
                     self.result_tree.insert("", "end", values=(index, key_path, result), tags=("success",))
                 elif success:
-                    continue  # Skip keys modified before one week
+                    continue  # Skip keys not in date range
                 else:
                     self.result_tree.insert("", "end", values=(index, key_path, f"{result}"), tags=("error",))
             except RuntimeError as e:
@@ -132,6 +153,18 @@ class RegistryCheckerGUI:
         # Configure tag settings for colors
         self.result_tree.tag_configure("success", foreground="#43B581")  # Light green for success
         self.result_tree.tag_configure("error", foreground="#F04747")  # Light red for error
+
+    def on_checkbox_toggle(self):
+        """Handle checkbox state changes to ensure mutual exclusivity with text input."""
+        # Update selected roots based on checkbox state
+        self.selected_roots = {root for root, var in self.checkbox_vars.items() if var.get()}
+
+        # Disable textbox if any checkbox is checked
+        if self.selected_roots:
+            self.key_textbox.delete("1.0", tk.END)
+            self.key_textbox.config(state=tk.DISABLED)
+        else:
+            self.key_textbox.config(state=tk.NORMAL)
 
     def get_keys_in_root(self, root):
         """Retrieve all keys in a given registry root."""
