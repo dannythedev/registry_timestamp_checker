@@ -7,6 +7,7 @@ import datetime
 from tkcalendar import DateEntry
 from RegistryKey import RegistryKey
 
+BG_COLOR = "#D9E3F1"
 
 class RegistryCheckerGUI:
     """GUI application to check and display last modified timestamps of registry keys."""
@@ -19,13 +20,39 @@ class RegistryCheckerGUI:
         self.checkbox_vars = {}
         self.start_date = None
         self.end_date = None
-
+        self.create_style()
         self.create_widgets()
+
+    def create_style(self):
+        style = ttk.Style(self.root)
+        style.theme_use("clam")
+
+        # Normal state configuration
+        style.configure("Treeview.Heading", background="#5B62F4", foreground="white", relief=tk.FLAT)
+
+        # Hover state configuration (change hover background color to black)
+        style.map("Treeview.Heading",
+                  background=[("active", "#4F55C9")],
+                  foreground=[("active", "white")])
+
+        style.configure('Flat.Treeview', relief=tk.FLAT, background="#F0F5FA", foreground="#8599C8")
+        # Define scrollbar style
+        style.configure("Custom.Vertical.TScrollbar",
+                        background="#8599C8",
+                        troughcolor=BG_COLOR,
+                        gripcount=0,
+                        bordercolor=BG_COLOR,
+                        darkcolor=BG_COLOR,
+                        lightcolor=BG_COLOR)
+
+
+        # Set root background color
+        self.root.configure(bg=BG_COLOR)
 
     def create_widgets(self):
         """Create all GUI widgets."""
         # Label above the Textbox
-        textbox_label = tk.Label(self.root, text="Check for specific registry keys with path:")
+        textbox_label = tk.Label(self.root, text="Check for specific registry keys with path:", bg=BG_COLOR)
         textbox_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
 
         # Scrollbar for key_textbox
@@ -33,55 +60,63 @@ class RegistryCheckerGUI:
         key_scrollbar.grid(row=1, column=1, sticky="ns")
 
         # Textbox to paste registry keys
-        self.key_textbox = tk.Text(self.root, height=10, width=60, bg='#FFFFFF', fg='#000000', padx=5, pady=5,
+        self.key_textbox = tk.Text(self.root, height=3, width=60, bg='#FFFFFF', fg='#000000', padx=5, pady=5,
                                    yscrollcommand=key_scrollbar.set)
         self.key_textbox.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
         key_scrollbar.config(command=self.key_textbox.yview)
 
         # Label above the Checkboxes
-        checkboxes_label = tk.Label(self.root, text="Or fetch registries that were modified recently:")
+        checkboxes_label = tk.Label(self.root, text="Or fetch registries that were modified recently:", bg=BG_COLOR)
         checkboxes_label.grid(row=2, column=0, padx=10, pady=5, sticky="w")
 
         # Frame for checkboxes
-        checkbox_frame = ttk.Frame(self.root)
+        checkbox_frame = tk.Frame(self.root, bg=BG_COLOR)
         checkbox_frame.grid(row=3, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 
         # Create checkboxes for each registry root
         for i, (root, names) in enumerate(RegistryKey.registry_roots.items()):
             var = tk.BooleanVar()
-            checkbox = ttk.Checkbutton(checkbox_frame, text=names[0], variable=var, command=self.on_checkbox_toggle)
+            checkbox = tk.Checkbutton(checkbox_frame, text=names[0], variable=var, command=self.on_checkbox_toggle,
+                                       bg=BG_COLOR, fg="#8599C8", selectcolor=BG_COLOR,
+                                       activebackground=BG_COLOR, activeforeground="#7878BE",
+                                       font=("Segoe UI", 10))
             checkbox.grid(row=i // 3, column=i % 3, padx=5, pady=0, sticky="w")
             self.checkbox_vars[root] = var
 
         # Calendar / Date button for selecting date range
-        date_label = tk.Label(self.root, text="Select date range:")
-        date_label.grid(row=4, column=0, padx=10, pady=5, sticky="w")
+        date_label = tk.Label(self.root, text="Select date range:", bg=BG_COLOR)
+        date_label.grid(row=4, column=0, padx=10, pady=0, sticky="w")
 
         today = datetime.date.today()
 
+        # Frame for date entries
+        date_frame = tk.Frame(self.root, bg=BG_COLOR)
+        date_frame.grid(row=5, column=0, columnspan=2, padx=10, pady=0, sticky="w")
+
         # Start date entry
-        self.start_date_entry = DateEntry(self.root, width=12, background='#4CAF50',
+        self.start_date_entry = DateEntry(date_frame, width=12, background='#4CAF50',
                                           foreground='white', borderwidth=2, maxdate=today)
-        self.start_date_entry.grid(row=5, column=0, padx=10, pady=5, sticky="w")
+        self.start_date_entry.grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.start_date_entry.bind("<<DateEntrySelected>>", self.update_end_date_min)
 
         # End date entry
-        self.end_date_entry = DateEntry(self.root, width=12, background='#4CAF50',
+        self.end_date_entry = DateEntry(date_frame, width=12, background='#4CAF50',
                                         foreground='white', borderwidth=2, maxdate=today)
-        self.end_date_entry.grid(row=6, column=0, padx=10, pady=5, sticky="w")
+        self.end_date_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
         # Button to trigger checking
-        check_button = tk.Button(self.root, text="Retrieve Timestamps", command=self.check_registry_keys, bg='#4CAF50',
-                                 fg='white', activebackground='#45a049', padx=10, pady=5)
+        check_button = tk.Button(self.root, text="Retrieve Timestamps", command=self.check_registry_keys,
+                                    bg="#43CC29", fg="white", relief=tk.FLAT, height=2)
         check_button.grid(row=7, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
 
         # Scrollbar for result_tree
-        result_scrollbar = ttk.Scrollbar(self.root)
-        result_scrollbar.grid(row=8, column=1, sticky="ns")
+        self.result_scrollbar = ttk.Scrollbar(self.root, orient=tk.VERTICAL)
+        self.result_scrollbar.grid(row=8, column=1, sticky="ns")
+        self.result_scrollbar.grid_forget()
 
         # Treeview to display results in a table
         self.result_tree = ttk.Treeview(self.root, columns=("Index", "Key Path", "Last Modified"), show="headings",
-                                        selectmode="extended", yscrollcommand=result_scrollbar.set)
+                                        selectmode="extended", yscrollcommand=self.result_scrollbar.set)
         self.result_tree.heading("Index", text="#", anchor=tk.CENTER)
         self.result_tree.heading("Key Path", text="Key Path", anchor=tk.CENTER)
         self.result_tree.heading("Last Modified", text="Last Modified", anchor=tk.CENTER)
@@ -92,21 +127,28 @@ class RegistryCheckerGUI:
         self.result_tree.column("Last Modified", width=200, anchor=tk.W)
 
         # Grid setup for result treeview
-        self.result_tree.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
-        result_scrollbar.config(command=self.result_tree.yview)
+        self.result_tree.grid(row=8, column=0, padx=10, pady=10, sticky="nsew")
+
+        # Configure scrollbar command
+        self.result_scrollbar.config(command=self.result_tree.yview)
 
         # Configure weight for resizing
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(6, weight=1)
-        self.result_tree.columnconfigure(0, weight=1)
-        self.result_tree.rowconfigure(0, weight=1)
+        self.root.columnconfigure(1, weight=0)  # Or set a weight if you want the scrollbar to also resize
+        self.root.rowconfigure(8, weight=1)  # Ensure row 8 expands with resizing
+
+        self.result_tree.columnconfigure(0, weight=1)  # Adjust column weights if needed
+        self.result_tree.rowconfigure(0, weight=1)  # Adjust row weights if needed
 
         # Bind right-click event to show context menu
         self.result_tree.bind("<Button-3>", self.show_context_menu)
 
+        self.result_tree.grid_forget()  # Hide the treeview initially
+
         # Context menu for copying
         self.context_menu = tk.Menu(self.root, tearoff=0)
         self.context_menu.add_command(label="Copy", command=self.copy_selected_rows)
+
 
     def update_end_date_min(self, event):
         """Update the minimum date for the end date entry based on the selected start date."""
@@ -134,6 +176,10 @@ class RegistryCheckerGUI:
         # Get selected date range
         self.start_date = self.start_date_entry.get_date()
         self.end_date = self.end_date_entry.get_date() if self.end_date_entry.get_date() else datetime.date.today()
+
+        # Show result_tree
+        self.result_tree.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+        self.result_scrollbar.grid(row=8, column=1, sticky="ns")
 
         # Check each registry key and populate the treeview
         for index, key_path in enumerate(registry_keys, start=1):
