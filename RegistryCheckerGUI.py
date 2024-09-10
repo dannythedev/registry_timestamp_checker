@@ -9,6 +9,34 @@ from RegistryKey import RegistryKey
 
 BG_COLOR = "#D9E3F1"
 
+
+def create_icon():
+    # Create a new PhotoImage object with a size of 128x128 pixels
+    icon = tk.PhotoImage(width=128, height=128)
+
+    # Define colors
+    blue_light = "#4A90E2"
+    blue_dark = "#357ABD"
+    blue_darker = "#2A6F9C"
+
+    # Draw the cube faces
+    # Face 1 (front face)
+    for x in range(60, 90):
+        for y in range(60, 90):
+            icon.put(blue_light, (x, y))
+
+    # Face 2 (side face)
+    for x in range(80, 110):
+        for y in range(40, 70):
+            icon.put(blue_dark, (x, y))
+
+    # Face 3 (top face)
+    for x in range(40, 80):
+        for y in range(20, 60):
+            icon.put(blue_darker, (x, y))
+
+    return icon
+
 class RegistryCheckerGUI:
     """GUI application to check and display last modified timestamps of registry keys."""
 
@@ -16,12 +44,16 @@ class RegistryCheckerGUI:
         """Initialize the GUI with a given root window."""
         self.root = root
         self.root.title("Registry Key Timestamp Checker")
+        icon_image = create_icon()
+        self.root.iconphoto(True, icon_image)
         self.selected_roots = set()  # Set to store selected registry roots
         self.checkbox_vars = {}
         self.start_date = None
         self.end_date = None
         self.create_style()
         self.create_widgets()
+        # Create and set the icon
+
 
     def create_style(self):
         style = ttk.Style(self.root)
@@ -77,7 +109,7 @@ class RegistryCheckerGUI:
         for i, (root, names) in enumerate(RegistryKey.registry_roots.items()):
             var = tk.BooleanVar()
             checkbox = tk.Checkbutton(checkbox_frame, text=names[0], variable=var, command=self.on_checkbox_toggle,
-                                       bg=BG_COLOR, fg="#8599C8", selectcolor=BG_COLOR,
+                                       bg=BG_COLOR, fg="#7668A6", selectcolor=BG_COLOR,
                                        activebackground=BG_COLOR, activeforeground="#7878BE",
                                        font=("Segoe UI", 10))
             checkbox.grid(row=i // 3, column=i % 3, padx=5, pady=0, sticky="w")
@@ -90,17 +122,17 @@ class RegistryCheckerGUI:
         today = datetime.date.today()
 
         # Frame for date entries
-        date_frame = tk.Frame(self.root, bg=BG_COLOR)
-        date_frame.grid(row=5, column=0, columnspan=2, padx=10, pady=0, sticky="w")
+        self.date_frame = tk.Frame(self.root, bg=BG_COLOR)
+        self.date_frame.grid(row=5, column=0, columnspan=2, padx=10, pady=0, sticky="w")
 
         # Start date entry
-        self.start_date_entry = DateEntry(date_frame, width=12, background='#4CAF50',
+        self.start_date_entry = DateEntry(self.date_frame, width=12, background='#4CAF50',
                                           foreground='white', borderwidth=2, maxdate=today)
         self.start_date_entry.grid(row=0, column=0, padx=5, pady=5, sticky="w")
         self.start_date_entry.bind("<<DateEntrySelected>>", self.update_end_date_min)
 
         # End date entry
-        self.end_date_entry = DateEntry(date_frame, width=12, background='#4CAF50',
+        self.end_date_entry = DateEntry(self.date_frame, width=12, background='#4CAF50',
                                         foreground='white', borderwidth=2, maxdate=today)
         self.end_date_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
 
@@ -149,6 +181,11 @@ class RegistryCheckerGUI:
         self.context_menu = tk.Menu(self.root, tearoff=0)
         self.context_menu.add_command(label="Copy", command=self.copy_selected_rows)
 
+        self.error_label = tk.Label(self.date_frame, text="Please select at-least one Registry or type a path.", fg="#F04747",
+                                    bg=BG_COLOR)
+        self.no_results_label = tk.Label(self.date_frame, text="No results found for the specific registry in the date range.",
+                                    fg="#472FF0",
+                                    bg=BG_COLOR)
 
     def update_end_date_min(self, event):
         """Update the minimum date for the end date entry based on the selected start date."""
@@ -163,7 +200,6 @@ class RegistryCheckerGUI:
         """Retrieve and display last modified timestamps for the entered registry keys."""
         # Clear previous results
         self.result_tree.delete(*self.result_tree.get_children())
-
         # Retrieve keys based on selected roots or from textbox
         if self.selected_roots:
             registry_keys = []
@@ -172,6 +208,12 @@ class RegistryCheckerGUI:
         else:
             keys_text = self.key_textbox.get("1.0", tk.END).strip()
             registry_keys = keys_text.splitlines()
+            if not registry_keys:
+                self.error_label.grid(row=0, column=2, padx=5, pady=5, sticky="w")
+                self.result_tree.grid_forget()
+                self.result_scrollbar.grid_forget()
+                return
+        self.error_label.grid_forget()
 
         # Get selected date range
         self.start_date = self.start_date_entry.get_date()
@@ -181,6 +223,7 @@ class RegistryCheckerGUI:
         self.result_tree.grid(row=8, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
         self.result_scrollbar.grid(row=8, column=1, sticky="ns")
 
+        counter = 0
         # Check each registry key and populate the treeview
         for index, key_path in enumerate(registry_keys, start=1):
             registry_key = RegistryKey(key_path.strip())
@@ -189,12 +232,20 @@ class RegistryCheckerGUI:
                 last_modified_date = datetime.datetime.strptime(result, "%d/%m/%Y, %H:%M:%S")
                 if success and self.start_date <= last_modified_date.date() <= self.end_date:
                     self.result_tree.insert("", "end", values=(index, key_path, result), tags=("success",))
+                    counter += 1
                 elif success:
                     continue  # Skip keys not in date range
                 else:
                     self.result_tree.insert("", "end", values=(index, key_path, f"{result}"), tags=("error",))
             except RuntimeError as e:
                 self.result_tree.insert("", "end", values=(index, key_path, f"{str(e)}"), tags=("error",))
+
+        if not counter:
+            self.no_results_label.grid(row=0, column=2, padx=5, pady=5, sticky="w")
+            self.result_tree.grid_forget()
+            self.result_scrollbar.grid_forget()
+            return
+        self.no_results_label.grid_forget()
 
         # Configure tag settings for colors
         self.result_tree.tag_configure("success", foreground="#43B581")  # Light green for success
